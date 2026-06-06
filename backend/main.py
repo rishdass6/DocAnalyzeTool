@@ -1,19 +1,95 @@
-from fastapi import FastAPI
-import uvicorn
-from dotenv import load_dotenv
-import os
+from fastapi import FastAPI, Response, Cookie, status
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+from typing import Optional
 
-load_dotenv()
+import asyncio
+from session_manager import (
+    create_session,
+    get_session,
+    delete_session,
+    cleanup_expired_sessions,
+    get_session_count
+)
 
-api_key = os.getenv("ANTHROPIC_API_KEY")
+@asynccontextmanager
+async def manage_database(app: FastAPI):
+    print(f"Starting background task...")
+    task = asyncio.create_task(cleanup_expired_sessions())
 
-print(api_key)
+    try:
+        yield
+    finally:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
-app = FastAPI()
+app = FastAPI(
+    title="DocChat API",
+    version = "0.1.0",
+    lifespan=manage_database
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials = True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
+@app.post("/api/session/create")
+async def create(response: Response):
+    session_id = create_session()
+    response.set_cookie(
+        key="session_id",
+        value=session_id,
+        httponly=True,
+        samesite="lax",
+        max_age=3600,
+        secure=False
+    )
+
+    return {
+        "session_id": session_id,
+        "message": "Session created"
+    }
+
+@app.delete("/api/session")
+async def delete(response: Response, session_id: Optional[str] = Cookie(default=None)):
+    # 1. Check if cookie exists
+    if session_id is None:
+        response.status_code = status.HTTP_400_BAD_REQUEST # Or just 400
+        return {"error": "no_session", "message": "No session cookie found"}
+    
+    # 2. Check if session exists in our state
+    existing_session = get_session(session_id)
+    if existing_session is None:
+        response.status_code = status.HTTP_404_NOT_FOUND # Or just 404
+        return {"error": "not_found", "message": "Session not found"}
+    
+    delete_session(session_id)
+    response.delete_cookie("session_id")
+
+    return {"message": "Session deleted!"}
 
 @app.get("/health")
 def get_health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "active_sessions": get_session_count(),
+        "version": "0.1.0"
+    }
 
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="localhost", port = 8000, reload = True)
+@app.get("/api/session/verify")
+async def verify_session(session_id: Optional[str] = Cookie(default=None)):
+    # session_id is now correctly injected by FastAPI from the parameter list
+    result = get_session(session_id)
+
+    if result is None:
+        return {"valid": False}
+    else:
+        return {"valid": True, "session_id": session_id}
+    
