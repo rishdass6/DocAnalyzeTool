@@ -1,12 +1,16 @@
-from fastapi import FastAPI, Response, Cookie, status
+from fastapi import FastAPI, Response, Cookie, status, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from typing import Optional
 from routers.documents import router as documents_router
 from fastapi.openapi.utils import get_openapi
 from routers.chat import router as chat_router
-
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.errors import RateLimitExceeded
 import asyncio
+
 from session_manager import (
     create_session,
     get_session,
@@ -35,9 +39,21 @@ app = FastAPI(
     lifespan=manage_database
 )
 
-app.include_router(documents_router, prefix="/api")
-app.include_router(chat_router, prefix="/api")
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    error_code = getattr(exc, "error_code", "HTTP_ERROR")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": error_code,
+            "message": str(exc.detail),
+            "detail": {}
+        },
+    )
+
+app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -45,6 +61,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+app.include_router(documents_router, prefix="/api")
+app.include_router(chat_router, prefix="/api")
 
 @app.post("/api/session/create")
 async def create(response: Response):

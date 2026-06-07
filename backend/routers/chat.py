@@ -6,6 +6,7 @@ from anthropic import AsyncAnthropic
 from retriever import retrieve
 from prompt_builder import build_prompt
 from pydantic import BaseModel, Field
+from limiter import limiter
 
 _anthropic_client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
@@ -15,10 +16,12 @@ class QueryRequest(BaseModel):
     query: str = Field(
         ...,
         description="The search query string",
-        min_length=1
+        min_length=1,
+        max_length=2000
     )
 
 @router.post("/chat")
+@limiter.limit("5/minute")
 async def chat(request: QueryRequest, session_id: str | None = Cookie(default=None)):
     if not session_id:
         raise HTTPException(status_code=400, detail="No session cookie found")
@@ -39,13 +42,16 @@ async def chat(request: QueryRequest, session_id: str | None = Cookie(default=No
     async def stream_response():
         async with _anthropic_client.messages.stream(
             model="claude-sonnet-4-20250514",
-            max_tokens=1024,
+            max_tokens=2048,
             temperature=0,
             messages=[{"role": "user", "content": prompt}]
         ) as stream:
-            async for delta in stream.text_stream:
-                yield f"data: {delta}\n\n"
-        yield "data: DONE\n\n"
+            try:
+                async for delta in stream.text_stream:
+                    yield f"data: {delta}\n\n"
+                    yield "data: DONE\n\n"
+            except Exception as e:
+                yield f"Error: {e}"
 
     return StreamingResponse(
         stream_response(),
