@@ -74,7 +74,7 @@ async def _vector_search(session_id: str, queries: list[str]) -> list[tuple[int,
     from openai import AsyncOpenAI
     openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    response = openai_client.embeddings.create(
+    response = await openai_client.embeddings.create(
         input = queries,
         model = "text-embedding-3-small"
     )
@@ -83,17 +83,17 @@ async def _vector_search(session_id: str, queries: list[str]) -> list[tuple[int,
 
     all_scores: dict[int, float] = {}
     for vector in vector_query:
-        hits = qdrant_client.search(
+        hits = qdrant_client.query_points(
             collection_name = collection_name,
-            query_vector = vector,
+            query = vector,
             limit = RETRIEVAL_TOP_K
-        )
+        ).points
 
         for hit in hits:
-            id = hit.id
+            chunk_id = hit.id
             score = hit.score
-            if all_scores is None or score > all_scores[id]:
-                all_scores[id] = score
+            if chunk_id not in all_scores or score > all_scores[chunk_id]:
+                all_scores[chunk_id] = score
 
     results = sorted(all_scores.items(), key = lambda x: x[1], reverse=True)
     return results[:RETRIEVAL_TOP_K]
