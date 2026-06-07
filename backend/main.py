@@ -2,6 +2,8 @@ from fastapi import FastAPI, Response, Cookie, status
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from typing import Optional
+from routers.documents import router as documents_router
+from fastapi.openapi.utils import get_openapi
 
 import asyncio
 from session_manager import (
@@ -31,6 +33,8 @@ app = FastAPI(
     version = "0.1.0",
     lifespan=manage_database
 )
+
+app.include_router(documents_router, prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,
