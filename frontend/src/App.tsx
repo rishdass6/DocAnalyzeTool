@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 const ALLOWED_TYPES = new Set([".pdf", ".docx", ".txt", ".md"]);
 
@@ -6,6 +6,8 @@ export default function BrowseButton() {
   const [files, setFiles] = useState<FileList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string[]>([]);
+  const [ session_id, setSessionId ] = useState<string | null>(null);
+  const uploadComplete = progress.some(message => message.startsWith("DONE"));
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files;
@@ -64,6 +66,39 @@ export default function BrowseButton() {
   }
 
   const canUpload = files !== null && error == null;
+
+  useEffect(() => {
+    async function initSession() {
+
+      try {
+        let response = await fetch("/api/session/verify", {
+          method: 'GET',
+          credentials: "include"
+        })
+
+        let data = await response.json();
+        const valid = data.valid
+
+        if (valid) {
+          let sess_id = data.session_id
+          setSessionId(sess_id)
+        } else {
+          response = await fetch("/api/session/create", {
+            method: "POST",
+            credentials: "include"
+          })
+
+          data = await response.json()
+          let sess_id = data.session_id
+
+          setSessionId(sess_id)
+        }
+      } catch (error) {
+        console.log(`[SESSION] Something went wrong...${error}`)
+      }
+    }
+    initSession()
+  }, [])
 
   return (
     <div>
