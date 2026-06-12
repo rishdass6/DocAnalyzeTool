@@ -1,5 +1,5 @@
 import os
-from fastapi import APIRouter, Cookie, HTTPException
+from fastapi import APIRouter, Cookie, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from session_manager import get_session
 from anthropic import AsyncAnthropic
@@ -22,7 +22,7 @@ class QueryRequest(BaseModel):
 
 @router.post("/chat")
 @limiter.limit("5/minute")
-async def chat(request: QueryRequest, session_id: str | None = Cookie(default=None)):
+async def chat(request: Request, body: QueryRequest, session_id: str | None = Cookie(default=None)):
     if not session_id:
         raise HTTPException(status_code=400, detail="No session cookie found")
     session = get_session(session_id=session_id)
@@ -32,12 +32,12 @@ async def chat(request: QueryRequest, session_id: str | None = Cookie(default=No
     if not session.get("raw_chunks"):
         raise HTTPException(status_code=400, detail="No Documents indexed for this session")
     
-    chunks = await retrieve(request.query, session_id)
+    chunks = await retrieve(body.query, session_id)
 
     if not chunks:
         raise HTTPException(status_code=404, detail="No Relevant Chunks Found")
     
-    prompt = build_prompt(request.query, chunks)
+    prompt = build_prompt(body.query, chunks)
 
     async def stream_response():
         async with _anthropic_client.messages.stream(

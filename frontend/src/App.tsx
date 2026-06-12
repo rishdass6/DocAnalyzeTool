@@ -11,8 +11,7 @@ export default function App() {
 
   return (
     <div>
-      <BrowseButton onUpload={handleUploadComplete} />
-      {uploadS && <ChatPanel />}
+      {!uploadS ? <BrowseButton onUpload={handleUploadComplete} /> : <ChatPanel/>}
     </div>
   )
 }

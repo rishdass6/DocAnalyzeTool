@@ -2,7 +2,7 @@ import os
 import asyncio
 import tempfile
 from pathlib import Path
-from fastapi import APIRouter, UploadFile, File, Cookie, HTTPException
+from fastapi import APIRouter, UploadFile, File, Cookie, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from typing import Optional, AsyncGenerator
 
@@ -70,6 +70,7 @@ async def _process_and_stream(session_id: str, files: list[UploadFile]) -> Async
 @router.post("/documents/upload")
 @limiter.limit("5/minute")
 async def upload_documents(
+    request: Request,
     files: list[UploadFile] = File(...),
     session_id: Optional[str] = Cookie(default=None)
 ):

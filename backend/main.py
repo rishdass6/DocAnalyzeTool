@@ -6,10 +6,11 @@ from typing import Optional
 from routers.documents import router as documents_router
 from fastapi.openapi.utils import get_openapi
 from routers.chat import router as chat_router
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.errors import RateLimitExceeded
 import asyncio
+from limiter import limiter
 
 from session_manager import (
     create_session,
@@ -38,6 +39,8 @@ app = FastAPI(
     version = "0.1.0",
     lifespan=manage_database
 )
+
+app.state.limiter = limiter
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
