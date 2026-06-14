@@ -6,7 +6,8 @@ import TypingIndicator from "./TypingIndicator";
 
 export default function ChatPanel() {
     const [ messages, setMessages ] = useState<Message[]>([]);
-    const [ aiResponse, setAiResponse ] = useState<boolean>();
+    const [ aiResponse, setAiResponse ] = useState<boolean | null>(null);
+    let time_taken: number = 0;
 
     async function handleSend(text: string) {
 
@@ -17,6 +18,8 @@ export default function ChatPanel() {
         ])
 
         setAiResponse(true)
+
+        const start_time = Date.now()
 
         const response = await fetch("/api/chat", {
             method: "POST",
@@ -54,16 +57,27 @@ export default function ChatPanel() {
             )}
         }
 
+        const end_time = Date.now()
 
         setAiResponse(false)
+
+        time_taken = (end_time - start_time)/1000;
 
     }
 
     return (
-        <div>
-            <MessageInput onSend={handleSend} />
-            {aiResponse && <TypingIndicator />}
-            <MessageList messages={messages} />
+        <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-center p-4">
+            <div className="h-screen flex flex-col mx-auto max-w-xl w-full px-4 bg-zinc-950 ">
+
+                <div className="flex-1 w-full overflow-y-auto ">
+                    <MessageList messages={messages} />
+                    {aiResponse === true && <TypingIndicator/>}
+                    {aiResponse === false && time_taken !== undefined && (
+                        <p className="pl-2 text-zinc-400">Found in {time_taken}s</p>
+                    )}
+                </div>
+                <MessageInput onSend={handleSend} />
+            </div>
         </div>
     )
 }
