@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import ChatPanel from "./chat/ChatPanel";
 import BrowseButton from "./BrowseButton";
 

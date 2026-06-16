@@ -10,8 +10,7 @@ export default function BrowseButton({ onUpload }: onUploadComplete) {
   const [files, setFiles] = useState<FileList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string[]>([]);
-  const [ session_id, setSessionId ] = useState<string | null>(null);
-  const uploadComplete = progress.some(message => message.startsWith("DONE"));
+  const [, setSessionId ] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
 
@@ -105,8 +104,6 @@ export default function BrowseButton({ onUpload }: onUploadComplete) {
       console.log("Submission Failed:", error);
     }
   }
-
-  const canUpload = files !== null && error == null;
 
   useEffect(() => {
     async function initSession() {
@@ -227,7 +224,7 @@ export default function BrowseButton({ onUpload }: onUploadComplete) {
         </label>
         {files && !isUploading && (
           <div className="relative space-y-2 w-full text-center py-3">
-            {files && Array.from(files).map((file, index) =>
+            {files && Array.from(files).map((file) =>
               <div className="rounded-2xl border-2 flex flex-row items-center relative justify-left border-purple-600 bg-zinc-900/40 w-full min-h-[75px] transition-colors pl-2">
                 <FileIcon className="w-10 h-10 p-1 text-purple-400 shrink-0"/>
                 <h2 className="text-zinc-200 text-l font-medium truncate text-bold">
